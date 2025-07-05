@@ -234,7 +234,7 @@ class Chat extends Component {
                   borderWidth={1}
                   borderRadius={'xl'}
                   minH={'7rem'}
-                  placeholder="Aur Sunao... Press enter to send..."
+                  placeholder="Press enter to send..."
                   size="lg"
                   resize={'none'}
                   name="message"
