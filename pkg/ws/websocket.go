@@ -6,12 +6,14 @@ import (
 	"log"
 	"net/http"
 	"time"
-
+	"context"
 	"gochatapp/model"
 	"gochatapp/pkg/redisrepo"
 
 	"github.com/gorilla/websocket"
+	"github.com/go-redis/redis/v8"
 )
+
 
 type Client struct {
 	Conn     *websocket.Conn
@@ -25,8 +27,7 @@ type Message struct {
 }
 
 var clients = make(map[*Client]bool)
-var broadcast = make(chan *model.Chat)
-
+var redisClient *redis.Client
 // We'll need to define an Upgrader
 // this will require a Read and Write buffer size
 var upgrader = websocket.Upgrader{
@@ -69,69 +70,70 @@ func serveWs(w http.ResponseWriter, r *http.Request) {
 // endpoint
 func receiver(client *Client) {
 	for {
-		// read in a message
-		// readMessage returns messageType, message, err
-		// messageType: 1-> Text Message, 2 -> Binary Message
 		_, p, err := client.Conn.ReadMessage()
 		if err != nil {
-			log.Println(err)
+			log.Println("read error:", err)
 			return
 		}
 
 		m := &Message{}
-
-		err = json.Unmarshal(p, m)
-		if err != nil {
-			log.Println("error while unmarshaling chat", err)
+		if err := json.Unmarshal(p, m); err != nil {
+			log.Println("unmarshal error:", err)
 			continue
 		}
 
-		fmt.Println("host", client.Conn.RemoteAddr())
 		if m.Type == "bootup" {
-			// do mapping on bootup
 			client.Username = m.User
-			fmt.Println("client successfully mapped", &client, client, client.Username)
+			fmt.Println("client booted:", client.Username)
 		} else {
-			fmt.Println("received message", m.Type, m.Chat)
 			c := m.Chat
 			c.Timestamp = time.Now().Unix()
 
-			// save in redis
+			// Save to Redis (optional)
 			id, err := redisrepo.CreateChat(&c)
 			if err != nil {
-				log.Println("error while saving chat in redis", err)
+				log.Println("error saving chat to Redis:", err)
 				return
 			}
-
 			c.ID = id
-			broadcast <- &c
+
+			// Publish to Redis Pub/Sub channel
+			msgJSON, _ := json.Marshal(c)
+			err = redisClient.Publish(context.Background(), "chat_channel", msgJSON).Err()
+			if err != nil {
+				log.Println("publish error:", err)
+			}
 		}
 	}
 }
 
-func broadcaster() {
-	for {
-		message := <-broadcast
-		// send to every client that is currently connected
-		fmt.Println("new message", message)
+func startRedisSubscriber() {
+	pubsub := redisClient.Subscribe(context.Background(), "chat_channel")
+	ch := pubsub.Channel()
 
-		for client := range clients {
-			// send message only to involved users
-			fmt.Println("username:", client.Username,
-				"from:", message.From,
-				"to:", message.To)
+	go func() {
+		for msg := range ch {
+			var chat model.Chat
+			if err := json.Unmarshal([]byte(msg.Payload), &chat); err != nil {
+				log.Println("unmarshal error in subscriber:", err)
+				continue
+			}
 
-			if client.Username == message.From || client.Username == message.To {
-				err := client.Conn.WriteJSON(message)
-				if err != nil {
-					log.Printf("Websocket error: %s", err)
-					client.Conn.Close()
-					delete(clients, client)
+			// Deliver to all relevant WebSocket clients
+			for client := range clients {
+				if client.Username == chat.From || client.Username == chat.To {
+					err := client.Conn.WriteJSON(&chat)
+					if err != nil {
+						log.Println("write error:", err)
+						client.Conn.Close()
+						delete(clients, client)
+					}
 				}
 			}
 		}
-	}
+	}()
 }
+
 
 func setupRoutes() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -142,10 +144,13 @@ func setupRoutes() {
 }
 
 func StartWebsocketServer() {
-	redisClient := redisrepo.InitialiseRedis()
+	redisClient = redisrepo.InitialiseRedis() // Make sure this is accessible globally or pass it around
 	defer redisClient.Close()
 
-	go broadcaster()
+	startRedisSubscriber() // Start listening for published messages
 	setupRoutes()
+
+	log.Println("WebSocket server started on :8081")
 	http.ListenAndServe(":8081", nil)
 }
+

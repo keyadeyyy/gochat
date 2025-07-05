@@ -3,10 +3,10 @@ package httpserver
 import (
 	"encoding/json"
 	"fmt"
+	"gochatapp/pkg/redisrepo"
 	"log"
 	"net/http"
-
-	"gochatapp/pkg/redisrepo"
+	"strings"
 )
 
 type userReq struct {
@@ -23,16 +23,17 @@ type response struct {
 }
 
 func registerHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json") //signifies that data that will be sent back will be in JSON
 
 	u := &userReq{}
+	//create a decoder for the req, then do decoder.decode(u) to fill the json values into u
 	if err := json.NewDecoder(r.Body).Decode(u); err != nil {
-		http.Error(w, "error decoidng request object", http.StatusBadRequest)
+		http.Error(w, "error decodng request object", http.StatusBadRequest)
 		return
 	}
 
 	res := register(u)
-	json.NewEncoder(w).Encode(res)
+	json.NewEncoder(w).Encode(res) //create an encoder for w and g
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
@@ -40,7 +41,13 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 
 	u := &userReq{}
 	if err := json.NewDecoder(r.Body).Decode(u); err != nil {
-		http.Error(w, "error decoidng request object", http.StatusBadRequest)
+		http.Error(w, "error decoding request object", http.StatusBadRequest)
+		return
+	}
+
+	// Validate required fields
+	if strings.TrimSpace(u.Username) == "" || strings.TrimSpace(u.Password) == "" {
+		http.Error(w, `{"status": false, "message": "username and password cannot be empty"}`, http.StatusBadRequest)
 		return
 	}
 

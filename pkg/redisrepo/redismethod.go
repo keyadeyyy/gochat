@@ -13,7 +13,7 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-func RegisterNewUser(username, password string) error {
+func RegisterNewUser(username string, password string) error {
 	// redis-cli
 	// SYNTAX: SET key value
 	// SET username password
@@ -49,7 +49,7 @@ func IsUserExist(username string) bool {
 	return redisClient.SIsMember(context.Background(), userSetKey(), username).Val()
 }
 
-func IsUserAuthentic(username, password string) error {
+func IsUserAuthentic(username string, password string) error {
 	// redis-cli
 	// SYNTAX: GET key
 	// GET username
