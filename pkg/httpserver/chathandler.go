@@ -60,7 +60,7 @@ func verifyContactHandler(w http.ResponseWriter, r *http.Request) {
 
 	u := &userReq{}
 	if err := json.NewDecoder(r.Body).Decode(u); err != nil {
-		http.Error(w, "error decoidng request object", http.StatusBadRequest)
+		http.Error(w, "error decoding request object", http.StatusBadRequest)
 		return
 	}
 

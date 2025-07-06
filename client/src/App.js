@@ -13,6 +13,7 @@ import Chat from './Components/Chat/Chat';
 import Footer from './Components/Footer';
 
 // theme.styles.global['font-family'] = 'roboto';
+// browserrouter wrapper tells react-dom-router the routes
 function App() {
   return (
     <ChakraProvider theme={theme}>
@@ -20,7 +21,7 @@ function App() {
         <ColorModeSwitcher justifySelf="flex-end" />
       </Box>
       <Box textAlign="center" fontSize="xl">
-        <BrowserRouter>
+        <BrowserRouter> 
           <Header></Header>
           <Routes>
             <Route path="/" element={<Landing />} />

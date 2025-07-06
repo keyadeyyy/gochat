@@ -59,16 +59,19 @@ func serveWs(w http.ResponseWriter, r *http.Request) {
 
 	// listen indefinitely for new messages coming
 	// through on our WebSocket connection
-	receiver(client)
+	go receiver(client)
 
-	fmt.Println("exiting", ws.RemoteAddr().String())
-	delete(clients, client)
 }
 
 // define a receiver which will listen for
 // new messages being sent to our WebSocket
 // endpoint
 func receiver(client *Client) {
+	defer func() {
+		fmt.Println("exiting", client.Conn.RemoteAddr().String())
+		client.Conn.Close()
+		delete(clients, client)
+	}()
 	for {
 		_, p, err := client.Conn.ReadMessage()
 		if err != nil {
@@ -96,6 +99,10 @@ func receiver(client *Client) {
 				return
 			}
 			c.ID = id
+			// receiver(): if chat.To user doesn't have From in contact list, add them
+			_ = redisrepo.UpdateContactList(c.To, c.From)
+
+
 
 			// Publish to Redis Pub/Sub channel
 			msgJSON, _ := json.Marshal(c)
@@ -109,10 +116,10 @@ func receiver(client *Client) {
 
 func startRedisSubscriber() {
 	pubsub := redisClient.Subscribe(context.Background(), "chat_channel")
-	ch := pubsub.Channel()
+	ch := pubsub.Channel()//returns a go channel (producer)
 
 	go func() {
-		for msg := range ch {
+		for msg := range ch { //consumer consumes the messages from the channel
 			var chat model.Chat
 			if err := json.Unmarshal([]byte(msg.Payload), &chat); err != nil {
 				log.Println("unmarshal error in subscriber:", err)

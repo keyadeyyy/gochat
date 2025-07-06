@@ -9,9 +9,6 @@ func userSetKey() string {
 	return "users"
 }
 
-func sessionKey(client string) string {
-	return "session#" + client
-}
 
 func chatKey() string {
 	return fmt.Sprintf("chat#%d", time.Now().UnixMilli())

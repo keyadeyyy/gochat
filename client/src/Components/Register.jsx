@@ -94,7 +94,7 @@ class Register extends Component {
                   value={this.state.password}
                   onChange={this.onChange}
                 />
-                <FormHelperText>use a dummy password</FormHelperText>
+                <FormHelperText>use a strong password</FormHelperText>
               </FormControl>
               <Button
                 size="lg"

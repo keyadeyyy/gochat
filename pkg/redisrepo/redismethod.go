@@ -88,7 +88,7 @@ func CreateChat(c *model.Chat) (string, error) {
 	chatKey := chatKey()
 	fmt.Println("chat key", chatKey)
 
-	by, _ := json.Marshal(c)
+	by, _ := json.Marshal(c) //json encoding the go struct for redisJSON
 
 	// redis-cli
 	// SYNTAX: JSON.SET key $ json_in_string
@@ -100,7 +100,7 @@ func CreateChat(c *model.Chat) (string, error) {
 		"$",
 		string(by),
 	).Result()
-
+ 
 	if err != nil {
 		log.Println("error while setting chat json", err)
 		return "", err
